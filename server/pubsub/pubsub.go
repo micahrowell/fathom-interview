@@ -1,61 +1,62 @@
 package pubsub
 
 import (
+	// "fmt"
 	"sync"
+
+	"github.com/gorilla/websocket"
 )
 
 type PubSub interface {
-	Publish(topic string, data interface{})
-	Subscribe(topic string) <-chan string
-	Close()
+	Publish(string, int, []byte)
+	Subscribe(string, *websocket.Conn)
+	Unsubscribe(string, *websocket.Conn) bool
 }
 
-type pubsub struct {
+type PubSubImpl struct {
 	mu            sync.RWMutex
-	subscriptions map[string][]chan string
-	closed        bool
+	subscriptions map[string][]*websocket.Conn
 }
 
-func NewPubSub() *pubsub {
-	ps := &pubsub{}
-	ps.subscriptions = map[string][]chan string{}
+func NewPubSub() *PubSubImpl {
+	ps := &PubSubImpl{}
+	ps.subscriptions = map[string][]*websocket.Conn{}
 	return ps
 }
 
-func (ps *pubsub) Subscribe(topic string) <-chan string {
+func (ps *PubSubImpl) Subscribe(topic string, conn *websocket.Conn) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 
-	ch := make(chan string, 1)
-	ps.subscriptions[topic] = append(ps.subscriptions[topic], ch)
-	return ch
+	ps.subscriptions[topic] = append(ps.subscriptions[topic], conn)
 }
 
-func (ps *pubsub) Unsubscribe(topic string) bool {
-	unsubbed := false
-	for _, c := range ps.subscriptions[topic] {
-		close(c)
-		unsubbed = true
+func (ps *PubSubImpl) Unsubscribe(topic string, conn *websocket.Conn) bool {
+	idx := -1
+	for i, c := range ps.subscriptions[topic] {
+		if conn.RemoteAddr().Network() == c.RemoteAddr().Network() {
+			c.Close()
+			idx = i
+			break
+		}
 	}
 
-	if unsubbed {
-		delete(ps.subscriptions, topic)
+	if idx > -1 {
+		// ps.subscriptions[topic] = append(ps.subscriptions[topic][:idx], ps.subscriptions[topic][idx+1:]...)
+		ps.subscriptions[topic][idx] = ps.subscriptions[topic][len(ps.subscriptions[topic])-1]
+		ps.subscriptions[topic] = ps.subscriptions[topic][:len(ps.subscriptions[topic])-1]
 	}
 
-	return unsubbed
+	return idx != -1
 }
 
-func (ps *pubsub) Publish(topic string, data string) {
+func (ps *PubSubImpl) Publish(topic string, messageType int, data []byte) error {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 
-	if ps.closed {
-		return
+	var err error = nil
+	for _, conn := range ps.subscriptions[topic] {
+		err = conn.WriteMessage(messageType, []byte(data))
 	}
-
-	for _, ch := range ps.subscriptions[topic] {
-		go func(channel chan string) {
-			channel <- data
-		}(ch)
-	}
+	return err
 }
