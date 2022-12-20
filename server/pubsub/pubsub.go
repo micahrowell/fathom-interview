@@ -32,6 +32,9 @@ func (ps *PubSubImpl) Subscribe(topic string, conn *websocket.Conn) {
 }
 
 func (ps *PubSubImpl) Unsubscribe(topic string, conn *websocket.Conn) bool {
+	ps.mu.Lock()
+	defer ps.mu.Unlock()
+
 	idx := -1
 	for i, c := range ps.subscriptions[topic] {
 		if conn.RemoteAddr().Network() == c.RemoteAddr().Network() {
@@ -56,7 +59,7 @@ func (ps *PubSubImpl) Publish(topic string, messageType int, data []byte) error 
 
 	var err error = nil
 	for _, conn := range ps.subscriptions[topic] {
-		err = conn.WriteMessage(messageType, []byte(data))
+		err = conn.WriteMessage(messageType, data)
 	}
 	return err
 }
