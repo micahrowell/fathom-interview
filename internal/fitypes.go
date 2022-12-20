@@ -1,6 +1,15 @@
 package internal
 
 type Message struct {
-	UserID string
-	Body   string
+	UserID string `json:"UserID"`
+	Body   string `json:"Body"`
+}
+
+type Configuration struct {
+	Server serverconfig
+}
+
+type serverconfig struct {
+	Name string
+	Port int
 }

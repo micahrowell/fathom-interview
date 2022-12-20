@@ -12,19 +12,19 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// TODO: modify to remove connection, publish to all connections
-func subscribeAndListen(conn *websocket.Conn, ps *pubsub.PubSubImpl, path string) {
-	ps.Subscribe(path, conn)
+func subscribeAndListen(conn *websocket.Conn, ps *pubsub.PubSub, topic string) {
+	ps.Subscribe(topic, conn)
 
 	// listen for messages
 	for {
-		// read a message
+		// read incoming message
 		messageType, messageContent, err := conn.ReadMessage()
 		if err != nil {
 			log.Println(err)
 			return
 		}
 
+		// convert from JSON
 		msg := internal.Message{}
 		err = json.Unmarshal(messageContent, &msg)
 		if err != nil {
@@ -33,11 +33,10 @@ func subscribeAndListen(conn *websocket.Conn, ps *pubsub.PubSubImpl, path string
 		}
 
 		// display message on the server console
-		messageWithTopic := fmt.Sprintf("%s - %s: %s", path, msg.UserID, msg.Body)
-		fmt.Println(messageWithTopic)
+		fmt.Printf("%s - %s: %s", topic, msg.UserID, msg.Body)
 
 		// send the message to all subscribers
-		_ = ps.Publish(path, messageType, messageContent)
+		_ = ps.Publish(topic, messageType, messageContent)
 	}
 }
 
