@@ -11,23 +11,25 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func getInput(input chan string) {
+func getInput(input chan string, user string) {
 	in := bufio.NewReader(os.Stdin)
-	message, err := in.ReadString('\n')
+	terminalInput, err := in.ReadString('\n')
 	if err != nil {
 		log.Println(err)
 		return
 	}
+	message := fmt.Sprintf("%s: %s", user, terminalInput)
 	input <- message
 }
 
 func main() {
-	if len(os.Args) != 3 {
-		fmt.Println("Client needs a Server and Path argument")
+	if len(os.Args) != 4 {
+		fmt.Println("Client needs Server, Path, and Username arguments")
 		return
 	}
 	server := os.Args[1]
 	path := os.Args[2]
+	username := os.Args[3]
 	fmt.Println("Connecting to:", server, "at", path)
 
 	// create a channel to listen for this client closing
@@ -37,7 +39,7 @@ func main() {
 
 	// create a channel to listen for user input in terminal
 	inputChannel := make(chan string, 1)
-	go getInput(inputChannel)
+	go getInput(inputChannel, username)
 
 	// create the websocket that will connect to the server
 	URL := url.URL{Scheme: "ws", Host: server, Path: path}
@@ -72,7 +74,7 @@ func main() {
 				log.Println("Write error:", err)
 				return
 			}
-			go getInput(inputChannel)
+			go getInput(inputChannel, username)
 		case <-quitChannel:
 			log.Println("Client is quitting!")
 			err := ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
