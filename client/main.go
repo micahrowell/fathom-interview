@@ -10,15 +10,11 @@ import (
 	"os/signal"
 
 	"github.com/gorilla/websocket"
+	"github.com/micahrowell/fathom-interview/internal"
 )
 
-type message struct {
-	UserID string
-	Body   string
-}
-
-func getInput(input chan message, user string) {
-	msg := message{}
+func getInput(input chan internal.Message, user string) {
+	msg := internal.Message{}
 	in := bufio.NewReader(os.Stdin)
 	terminalInput, err := in.ReadString('\n')
 	if err != nil {
@@ -46,7 +42,7 @@ func main() {
 	signal.Notify(quitChannel, os.Interrupt)
 
 	// create a channel to listen for user input in terminal
-	inputChannel := make(chan message, 1)
+	inputChannel := make(chan internal.Message, 1)
 	go getInput(inputChannel, username)
 
 	// create the websocket that will connect to the server
@@ -68,7 +64,7 @@ func main() {
 				log.Printf("Error when attempting to read a message from the server: %\n", err)
 				return
 			}
-			msg := message{}
+			msg := internal.Message{}
 			err = json.Unmarshal(remoteMessage, &msg)
 			if err != nil {
 				log.Printf("Error when attempting to unmarshal remote message. Err: %s\nMessage: %s\n", err, string(remoteMessage))

@@ -6,15 +6,11 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/micahrowell/fathom-interview/internal"
 	"github.com/micahrowell/fathom-interview/server/pubsub"
 
 	"github.com/gorilla/websocket"
 )
-
-type message struct {
-	UserID string
-	Body   string
-}
 
 // TODO: modify to remove connection, publish to all connections
 func subscribeAndListen(conn *websocket.Conn, ps *pubsub.PubSubImpl, path string) {
@@ -29,7 +25,7 @@ func subscribeAndListen(conn *websocket.Conn, ps *pubsub.PubSubImpl, path string
 			return
 		}
 
-		msg := message{}
+		msg := internal.Message{}
 		err = json.Unmarshal(messageContent, &msg)
 		if err != nil {
 			log.Println(err)
