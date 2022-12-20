@@ -5,24 +5,25 @@ import (
 )
 
 type PubSub interface {
-	Publish(topic string, data interface{})
+	Publish(topic string, data string)
 	Subscribe(topic string) <-chan string
-	Close()
+	Unsubscribe(topic string) bool
+	// Close()
 }
 
-type pubsub struct {
+type PubSubImpl struct {
 	mu            sync.RWMutex
 	subscriptions map[string][]chan string
 	closed        bool
 }
 
-func NewPubSub() *pubsub {
-	ps := &pubsub{}
+func NewPubSub() *PubSubImpl {
+	ps := &PubSubImpl{}
 	ps.subscriptions = map[string][]chan string{}
 	return ps
 }
 
-func (ps *pubsub) Subscribe(topic string) <-chan string {
+func (ps *PubSubImpl) Subscribe(topic string) <-chan string {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 
@@ -31,7 +32,7 @@ func (ps *pubsub) Subscribe(topic string) <-chan string {
 	return ch
 }
 
-func (ps *pubsub) Unsubscribe(topic string) bool {
+func (ps *PubSubImpl) Unsubscribe(topic string) bool {
 	unsubbed := false
 	for _, c := range ps.subscriptions[topic] {
 		close(c)
@@ -45,7 +46,7 @@ func (ps *pubsub) Unsubscribe(topic string) bool {
 	return unsubbed
 }
 
-func (ps *pubsub) Publish(topic string, data string) {
+func (ps *PubSubImpl) Publish(topic string, data string) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 

@@ -2,60 +2,52 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 
-	// "github.com/gorilla/websocket"
+	"github.com/gorilla/websocket"
 	"github.com/micahrowell/fathom-interview/server/pubsub"
 )
 
-var ps = pubsub.NewPubSub()
+// TODO: modify to remove connection, publish to all connections
+func listen(conn *websocket.Conn, ps pubsub.PubSub, path string) {
+	ps.Subscribe(path)
+	for {
+		// read a message
+		messageType, messageContent, err := conn.ReadMessage()
+		if err != nil {
+			log.Println(err)
+			return
+		}
 
-// var upgrader = websocket.Upgrader{}
+		// print out that message
+		fmt.Println(string(messageContent))
 
-func initializer(w http.ResponseWriter, r *http.Request) {
-	io.WriteString(w, "Connected to server\n")
-}
+		// reponse message
+		messageResponse := fmt.Sprintf("Your message is: %s\n", messageContent)
+		ps.Publish(path, messageResponse)
 
-func publishHandler(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
-	topic := r.Header.Get("topic")
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		fmt.Printf("Error encountered: %e", err)
-		w.Write([]byte("Invalid body"))
-		return
+		if err := conn.WriteMessage(messageType, []byte(messageResponse)); err != nil {
+			log.Println(err)
+			return
+		}
 	}
-	bodyString := string(bodyBytes)
-	fmt.Printf("Publishing to topic: %s\nmessage: %s\n", topic, bodyString)
-	ps.Publish(topic, bodyString)
-}
-
-func subscribeHandler(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
-	topic := r.Header.Get("topic")
-	ch := ps.Subscribe(topic)
-	fmt.Printf("Subscribing to topic: %s\n", topic)
-	for msg := range ch {
-		fmt.Printf("Sending message: %s\n", msg)
-		w.Write([]byte(msg))
-	}
-}
-
-func unsubscribeHandler(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
-	topic := r.Header.Get("topic")
-	unsubbed := ps.Unsubscribe(topic)
-	fmt.Printf("Topic: %s\nUnsubscribed: %t\n", topic, unsubbed)
 }
 
 func main() {
+	ps := pubsub.NewPubSub()
+	var upgrader = websocket.Upgrader{}
+
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", initializer)
-	mux.HandleFunc("/publish", publishHandler)
-	mux.HandleFunc("/subscribe", subscribeHandler)
-	mux.HandleFunc("/unsubscribe", unsubscribeHandler)
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		ws, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		log.Printf("Websocket connected at path %s", r.URL.Path)
+		listen(ws, ps, r.URL.Path)
+	})
 
 	err := http.ListenAndServe(":3000", mux)
 
