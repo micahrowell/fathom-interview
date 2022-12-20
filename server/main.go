@@ -6,10 +6,13 @@ import (
 	"log"
 	"net/http"
 
+	// "github.com/gorilla/websocket"
 	"github.com/micahrowell/fathom-interview/server/pubsub"
 )
 
 var ps = pubsub.NewPubSub()
+
+// var upgrader = websocket.Upgrader{}
 
 func initializer(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, "Connected to server\n")
@@ -20,7 +23,9 @@ func publishHandler(w http.ResponseWriter, r *http.Request) {
 	topic := r.Header.Get("topic")
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Printf("Error encountered: %e", err)
+		w.Write([]byte("Invalid body"))
+		return
 	}
 	bodyString := string(bodyBytes)
 	fmt.Printf("Publishing to topic: %s\nmessage: %s\n", topic, bodyString)
@@ -53,8 +58,8 @@ func main() {
 	mux.HandleFunc("/unsubscribe", unsubscribeHandler)
 
 	err := http.ListenAndServe(":3000", mux)
-	fmt.Println("Server up and listening on port 3000...")
+
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 }
