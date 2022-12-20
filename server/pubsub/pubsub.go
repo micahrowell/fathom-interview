@@ -2,61 +2,61 @@ package pubsub
 
 import (
 	"sync"
+
+	"github.com/gorilla/websocket"
 )
 
 type PubSub interface {
-	Publish(topic string, data string)
-	Subscribe(topic string) <-chan string
-	Unsubscribe(topic string) bool
+	Publish(string, int, string)
+	Subscribe(string, *websocket.Conn)
+	// Unsubscribe(string, *websocket.Conn) bool
 	// Close()
 }
 
 type PubSubImpl struct {
 	mu            sync.RWMutex
-	subscriptions map[string][]chan string
+	subscriptions map[string][]*websocket.Conn
 	closed        bool
 }
 
 func NewPubSub() *PubSubImpl {
 	ps := &PubSubImpl{}
-	ps.subscriptions = map[string][]chan string{}
+	ps.subscriptions = map[string][]*websocket.Conn{}
 	return ps
 }
 
-func (ps *PubSubImpl) Subscribe(topic string) <-chan string {
+func (ps *PubSubImpl) Subscribe(topic string, conn *websocket.Conn) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 
-	ch := make(chan string, 1)
-	ps.subscriptions[topic] = append(ps.subscriptions[topic], ch)
-	return ch
+	ps.subscriptions[topic] = append(ps.subscriptions[topic], conn)
 }
 
-func (ps *PubSubImpl) Unsubscribe(topic string) bool {
-	unsubbed := false
-	for _, c := range ps.subscriptions[topic] {
-		close(c)
-		unsubbed = true
-	}
+// func (ps *PubSubImpl) Unsubscribe(topic string, conn *websocket.Conn) bool {
+// 	unsubbed := false
+// 	for _, c := range ps.subscriptions[topic] {
+// 		c.Close()
+// 		unsubbed = true
+// 	}
 
-	if unsubbed {
-		delete(ps.subscriptions, topic)
-	}
+// 	if unsubbed {
+// 		// delete(ps.subscriptions, topic)
+// 	}
 
-	return unsubbed
-}
+// 	return unsubbed
+// }
 
-func (ps *PubSubImpl) Publish(topic string, data string) {
+func (ps *PubSubImpl) Publish(topic string, messageType int, data string) error {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 
 	if ps.closed {
-		return
+		return nil
 	}
 
-	for _, ch := range ps.subscriptions[topic] {
-		go func(channel chan string) {
-			channel <- data
-		}(ch)
+	var err error = nil
+	for _, conn := range ps.subscriptions[topic] {
+		err = conn.WriteMessage(messageType, []byte(data))
 	}
+	return err
 }

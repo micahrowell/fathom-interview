@@ -10,8 +10,8 @@ import (
 )
 
 // TODO: modify to remove connection, publish to all connections
-func listen(conn *websocket.Conn, ps pubsub.PubSub, path string) {
-	ps.Subscribe(path)
+func listen(conn *websocket.Conn, ps *pubsub.PubSubImpl, path string) {
+	ps.Subscribe(path, conn)
 	for {
 		// read a message
 		messageType, messageContent, err := conn.ReadMessage()
@@ -23,14 +23,9 @@ func listen(conn *websocket.Conn, ps pubsub.PubSub, path string) {
 		// print out that message
 		fmt.Println(string(messageContent))
 
-		// reponse message
+		// // reponse message
 		messageResponse := fmt.Sprintf("Your message is: %s\n", messageContent)
-		ps.Publish(path, messageResponse)
-
-		if err := conn.WriteMessage(messageType, []byte(messageResponse)); err != nil {
-			log.Println(err)
-			return
-		}
+		_ = ps.Publish(path, messageType, messageResponse)
 	}
 }
 

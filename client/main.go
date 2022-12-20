@@ -8,90 +8,81 @@ import (
 	"os"
 	"os/signal"
 
-	// "syscall"
-	"time"
-
 	"github.com/gorilla/websocket"
 )
 
-var SERVER = ""
-var PATH = ""
-var TIMESWAIT = 0
-var TIMESWAITMAX = 5
-var in = bufio.NewReader(os.Stdin)
-
 func getInput(input chan string) {
-	result, err := in.ReadString('\n')
+	in := bufio.NewReader(os.Stdin)
+	message, err := in.ReadString('\n')
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	input <- result
+	input <- message
 }
 
 func main() {
-	arguments := os.Args
-	if len(arguments) != 3 {
-		fmt.Println("Need SERVER + PATH!")
+	if len(os.Args) != 3 {
+		fmt.Println("Client needs a Server and Path argument")
 		return
 	}
-	SERVER = arguments[1]
-	PATH = arguments[2]
-	fmt.Println("Connecting to:", SERVER, "at", PATH)
-	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt)
+	server := os.Args[1]
+	path := os.Args[2]
+	fmt.Println("Connecting to:", server, "at", path)
 
-	input := make(chan string, 1)
-	go getInput(input)
-	URL := url.URL{Scheme: "ws", Host: SERVER, Path: PATH}
-	c, _, err := websocket.DefaultDialer.Dial(URL.String(), nil)
+	// create a channel to listen for this client closing
+	// in this example, typing ctrl+C on the keyboard will send the appropriate signal
+	quitChannel := make(chan os.Signal, 1)
+	signal.Notify(quitChannel, os.Interrupt)
+
+	// create a channel to listen for user input in terminal
+	inputChannel := make(chan string, 1)
+	go getInput(inputChannel)
+
+	// create the websocket that will connect to the server
+	URL := url.URL{Scheme: "ws", Host: server, Path: path}
+	ws, _, err := websocket.DefaultDialer.Dial(URL.String(), nil)
 	if err != nil {
-		log.Println("Error:", err)
+		log.Printf("Error creating the websocket: %e", err)
 		return
 	}
-	defer c.Close()
-	done := make(chan struct{})
+	defer ws.Close()
+
+	// create another channel to listen for a received message from the websocket
+	messageChannel := make(chan struct{})
 	go func() {
-		defer close(done)
+		defer close(messageChannel)
 		for {
-			_, message, err := c.ReadMessage()
+			_, message, err := ws.ReadMessage()
 			if err != nil {
 				log.Println("ReadMessage() error:", err)
 				return
 			}
-			log.Printf("Received: %s", message)
+			log.Println(message)
 		}
 	}()
 
 	for {
 		select {
-		// case <-time.After(4 * time.Second):
-		// 	log.Println("Please give me input!", TIMESWAIT)
-		// 	TIMESWAIT++
-		// 	if TIMESWAIT > TIMESWAITMAX {
-		// 		syscall.Kill(syscall.Getpid(), syscall.SIGINT)
-		// 	}
-		case <-done:
+		case <-messageChannel:
 			return
-		case t := <-input:
-			err := c.WriteMessage(websocket.TextMessage, []byte(t))
+		case msg := <-inputChannel:
+			err := ws.WriteMessage(websocket.TextMessage, []byte(msg))
 			if err != nil {
 				log.Println("Write error:", err)
 				return
 			}
-			TIMESWAIT = 0
-			go getInput(input)
-		case <-interrupt:
-			log.Println("Caught interrupt signal - quitting!")
-			err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			go getInput(inputChannel)
+		case <-quitChannel:
+			log.Println("Client is quitting!")
+			err := ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 
 			if err != nil {
 				log.Println("Write close error:", err)
 				return
 			}
 			select {
-			case <-done:
-			case <-time.After(2 * time.Second):
+			case <-messageChannel:
 			}
 			return
 		}
