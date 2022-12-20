@@ -22,11 +22,14 @@ func subscribeAndListen(conn *websocket.Conn, ps *pubsub.PubSubImpl, path string
 			return
 		}
 
+		messageString := string(messageContent)
+
 		// display message on the server console
-		fmt.Println(string(messageContent))
+		messageWithTopic := fmt.Sprintf("%s - %s", path, messageString)
+		fmt.Println(messageWithTopic)
 
 		// send the message to all subscribers
-		_ = ps.Publish(path, messageType, string(messageContent))
+		_ = ps.Publish(path, messageType, messageString)
 	}
 }
 

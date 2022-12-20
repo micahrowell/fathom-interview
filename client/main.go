@@ -50,23 +50,25 @@ func main() {
 	}
 	defer ws.Close()
 
-	// create another channel to listen for a received message from the websocket
-	messageChannel := make(chan struct{})
+	// create another channel for when we receive an error from the server
+	serverInterruptChannel := make(chan struct{})
 	go func() {
-		defer close(messageChannel)
+		defer close(serverInterruptChannel)
 		for {
 			_, message, err := ws.ReadMessage()
 			if err != nil {
-				log.Println("ReadMessage() error:", err)
+				log.Printf("Error when attempting to read a message from the server: %s\n", err)
 				return
 			}
-			log.Println(message)
+			log.Println(string(message))
 		}
 	}()
 
 	for {
 		select {
-		case <-messageChannel:
+		// this case checks for the closure of this channel
+		case <-serverInterruptChannel:
+			log.Println("Websocket connection closed on server side, exiting...")
 			return
 		case msg := <-inputChannel:
 			err := ws.WriteMessage(websocket.TextMessage, []byte(msg))
@@ -80,11 +82,8 @@ func main() {
 			err := ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 
 			if err != nil {
-				log.Println("Write close error:", err)
+				log.Printf("Error during closing websocket: %s", err)
 				return
-			}
-			select {
-			case <-messageChannel:
 			}
 			return
 		}

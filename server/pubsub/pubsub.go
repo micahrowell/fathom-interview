@@ -1,6 +1,7 @@
 package pubsub
 
 import (
+	// "fmt"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -9,14 +10,12 @@ import (
 type PubSub interface {
 	Publish(string, int, string)
 	Subscribe(string, *websocket.Conn)
-	// Unsubscribe(string, *websocket.Conn) bool
-	// Close()
+	Unsubscribe(string, *websocket.Conn) bool
 }
 
 type PubSubImpl struct {
 	mu            sync.RWMutex
 	subscriptions map[string][]*websocket.Conn
-	closed        bool
 }
 
 func NewPubSub() *PubSubImpl {
@@ -30,29 +29,32 @@ func (ps *PubSubImpl) Subscribe(topic string, conn *websocket.Conn) {
 	defer ps.mu.Unlock()
 
 	ps.subscriptions[topic] = append(ps.subscriptions[topic], conn)
+
+	// fmt.Print(ps.subscriptions[topic])
 }
 
-// func (ps *PubSubImpl) Unsubscribe(topic string, conn *websocket.Conn) bool {
-// 	unsubbed := false
-// 	for _, c := range ps.subscriptions[topic] {
-// 		c.Close()
-// 		unsubbed = true
-// 	}
+func (ps *PubSubImpl) Unsubscribe(topic string, conn *websocket.Conn) bool {
+	idx := -1
+	for i, c := range ps.subscriptions[topic] {
+		if conn.RemoteAddr().Network() == c.RemoteAddr().Network() {
+			c.Close()
+			idx = i
+			break
+		}
+	}
 
-// 	if unsubbed {
-// 		// delete(ps.subscriptions, topic)
-// 	}
+	if idx > -1 {
+		ps.subscriptions[topic] = append(ps.subscriptions[topic][:idx], ps.subscriptions[topic][idx+1])
+	}
 
-// 	return unsubbed
-// }
+	// fmt.Print(ps.subscriptions[topic])
+
+	return idx != -1
+}
 
 func (ps *PubSubImpl) Publish(topic string, messageType int, data string) error {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
-
-	if ps.closed {
-		return nil
-	}
 
 	var err error = nil
 	for _, conn := range ps.subscriptions[topic] {
