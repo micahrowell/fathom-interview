@@ -41,6 +41,9 @@ func subscribeAndListen(conn *websocket.Conn, ps *pubsub.PubSub, topic string) {
 }
 
 func main() {
+	var config internal.Configuration
+	config.ReadConfig()
+
 	ps := pubsub.NewPubSub()
 	var upgrader = websocket.Upgrader{}
 

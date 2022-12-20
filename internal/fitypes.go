@@ -10,6 +10,6 @@ type Configuration struct {
 }
 
 type serverconfig struct {
-	Name string
-	Port int
+	Name string `yaml:"name"`
+	Port int    `yaml:"port"`
 }

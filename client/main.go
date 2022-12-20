@@ -27,13 +27,17 @@ func getInput(input chan internal.Message, user string) {
 }
 
 func main() {
-	if len(os.Args) != 4 {
-		fmt.Println("Client needs Server, Path, and Username arguments")
+	var config internal.Configuration
+	config.ReadConfig()
+
+	server := fmt.Sprintf("%s:%d", config.Server.Name, config.Server.Port)
+
+	if len(os.Args) != 3 {
+		fmt.Println("Client needs Path and Username arguments")
 		return
 	}
-	server := os.Args[1]
-	topic := os.Args[2]
-	username := os.Args[3]
+	topic := os.Args[1]
+	username := os.Args[2]
 	fmt.Println("Connecting to:", server, "at", topic)
 
 	// create a channel to listen for this client closing
