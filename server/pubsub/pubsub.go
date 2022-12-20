@@ -31,6 +31,20 @@ func (ps *pubsub) Subscribe(topic string) <-chan string {
 	return ch
 }
 
+func (ps *pubsub) Unsubscribe(topic string) bool {
+	unsubbed := false
+	for _, c := range ps.subscriptions[topic] {
+		close(c)
+		unsubbed = true
+	}
+
+	if unsubbed {
+		delete(ps.subscriptions, topic)
+	}
+
+	return unsubbed
+}
+
 func (ps *pubsub) Publish(topic string, data string) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
