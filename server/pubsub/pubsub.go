@@ -29,8 +29,6 @@ func (ps *PubSubImpl) Subscribe(topic string, conn *websocket.Conn) {
 	defer ps.mu.Unlock()
 
 	ps.subscriptions[topic] = append(ps.subscriptions[topic], conn)
-
-	// fmt.Print(ps.subscriptions[topic])
 }
 
 func (ps *PubSubImpl) Unsubscribe(topic string, conn *websocket.Conn) bool {
@@ -44,10 +42,10 @@ func (ps *PubSubImpl) Unsubscribe(topic string, conn *websocket.Conn) bool {
 	}
 
 	if idx > -1 {
-		ps.subscriptions[topic] = append(ps.subscriptions[topic][:idx], ps.subscriptions[topic][idx+1])
+		// ps.subscriptions[topic] = append(ps.subscriptions[topic][:idx], ps.subscriptions[topic][idx+1:]...)
+		ps.subscriptions[topic][idx] = ps.subscriptions[topic][len(ps.subscriptions[topic])-1]
+		ps.subscriptions[topic] = ps.subscriptions[topic][:len(ps.subscriptions[topic])-1]
 	}
-
-	// fmt.Print(ps.subscriptions[topic])
 
 	return idx != -1
 }
