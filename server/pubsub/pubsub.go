@@ -8,7 +8,7 @@ import (
 )
 
 type PubSub interface {
-	Publish(string, int, string)
+	Publish(string, int, []byte)
 	Subscribe(string, *websocket.Conn)
 	Unsubscribe(string, *websocket.Conn) bool
 }
@@ -50,7 +50,7 @@ func (ps *PubSubImpl) Unsubscribe(topic string, conn *websocket.Conn) bool {
 	return idx != -1
 }
 
-func (ps *PubSubImpl) Publish(topic string, messageType int, data string) error {
+func (ps *PubSubImpl) Publish(topic string, messageType int, data []byte) error {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 

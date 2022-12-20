@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/url"
@@ -11,15 +12,22 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func getInput(input chan string, user string) {
+type message struct {
+	UserID string
+	Body   string
+}
+
+func getInput(input chan message, user string) {
+	msg := message{}
 	in := bufio.NewReader(os.Stdin)
 	terminalInput, err := in.ReadString('\n')
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	message := fmt.Sprintf("%s: %s", user, terminalInput)
-	input <- message
+	msg.UserID = user
+	msg.Body = terminalInput
+	input <- msg
 }
 
 func main() {
@@ -38,7 +46,7 @@ func main() {
 	signal.Notify(quitChannel, os.Interrupt)
 
 	// create a channel to listen for user input in terminal
-	inputChannel := make(chan string, 1)
+	inputChannel := make(chan message, 1)
 	go getInput(inputChannel, username)
 
 	// create the websocket that will connect to the server
@@ -55,12 +63,17 @@ func main() {
 	go func() {
 		defer close(serverInterruptChannel)
 		for {
-			_, message, err := ws.ReadMessage()
+			_, remoteMessage, err := ws.ReadMessage()
 			if err != nil {
-				log.Printf("Error when attempting to read a message from the server: %s\n", err)
+				log.Printf("Error when attempting to read a message from the server: %\n", err)
 				return
 			}
-			log.Println(string(message))
+			msg := message{}
+			err = json.Unmarshal(remoteMessage, &msg)
+			if err != nil {
+				log.Printf("Error when attempting to unmarshal remote message. Err: %s\nMessage: %s\n", err, string(remoteMessage))
+			}
+			log.Printf("%s: %s", msg.UserID, msg.Body)
 		}
 	}()
 
@@ -71,7 +84,9 @@ func main() {
 			log.Println("Websocket connection closed on server side, exiting...")
 			return
 		case msg := <-inputChannel:
-			err := ws.WriteMessage(websocket.TextMessage, []byte(msg))
+			msgJson, err := json.Marshal(msg)
+			// websocket.WriteJSON(ws, msgJson)
+			err = ws.WriteMessage(websocket.TextMessage, msgJson)
 			if err != nil {
 				log.Println("Write error:", err)
 				return

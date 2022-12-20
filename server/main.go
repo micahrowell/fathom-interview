@@ -1,13 +1,20 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 
-	"github.com/gorilla/websocket"
 	"github.com/micahrowell/fathom-interview/server/pubsub"
+
+	"github.com/gorilla/websocket"
 )
+
+type message struct {
+	UserID string
+	Body   string
+}
 
 // TODO: modify to remove connection, publish to all connections
 func subscribeAndListen(conn *websocket.Conn, ps *pubsub.PubSubImpl, path string) {
@@ -22,14 +29,20 @@ func subscribeAndListen(conn *websocket.Conn, ps *pubsub.PubSubImpl, path string
 			return
 		}
 
-		messageString := string(messageContent)
+		msg := message{}
+		err = json.Unmarshal(messageContent, &msg)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		// messageString := string(messageContent)
 
 		// display message on the server console
-		messageWithTopic := fmt.Sprintf("%s - %s", path, messageString)
+		messageWithTopic := fmt.Sprintf("%s - %s: %s", path, msg.UserID, msg.Body)
 		fmt.Println(messageWithTopic)
 
 		// send the message to all subscribers
-		_ = ps.Publish(path, messageType, messageString)
+		_ = ps.Publish(path, messageType, messageContent)
 	}
 }
 
