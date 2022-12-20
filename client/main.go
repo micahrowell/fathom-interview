@@ -81,7 +81,6 @@ func main() {
 			return
 		case msg := <-inputChannel:
 			msgJson, err := json.Marshal(msg)
-			// websocket.WriteJSON(ws, msgJson)
 			err = ws.WriteMessage(websocket.TextMessage, msgJson)
 			if err != nil {
 				log.Println("Write error:", err)

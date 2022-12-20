@@ -31,7 +31,6 @@ func subscribeAndListen(conn *websocket.Conn, ps *pubsub.PubSubImpl, path string
 			log.Println(err)
 			return
 		}
-		// messageString := string(messageContent)
 
 		// display message on the server console
 		messageWithTopic := fmt.Sprintf("%s - %s: %s", path, msg.UserID, msg.Body)
