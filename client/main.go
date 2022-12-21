@@ -40,7 +40,7 @@ func main() {
 	}
 	topic := os.Args[1]
 	username := os.Args[2]
-	fmt.Println("Connecting to:", server, "at", topic)
+	fmt.Printf("Connecting to: %s at %s\n", server, topic)
 
 	// create the websocket that will connect to the server
 	URL := url.URL{Scheme: "ws", Host: server, Path: topic}
