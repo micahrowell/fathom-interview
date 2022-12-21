@@ -54,11 +54,12 @@ func main() {
 			log.Println(err)
 			return
 		}
-		log.Printf("Websocket connected at path %s", r.URL.Path)
+		log.Printf("Websocket connected at %s", r.URL.Path)
 		subscribeAndListen(ws, ps, r.URL.Path)
 	})
 
-	err := http.ListenAndServe(":3000", mux)
+	port := fmt.Sprintf(":%d", config.Server.Port)
+	err := http.ListenAndServe(port, mux)
 
 	if err != nil {
 		log.Fatal(err)
