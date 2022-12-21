@@ -7,7 +7,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func (c *Configuration) ReadConfig() *Configuration {
+func (c *Configuration) ReadConfig() {
 	yamlFile, err := ioutil.ReadFile("config.yml")
 	if err != nil {
 		log.Fatal(err)
@@ -17,6 +17,4 @@ func (c *Configuration) ReadConfig() *Configuration {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	return c
 }
