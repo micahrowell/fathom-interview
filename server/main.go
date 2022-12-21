@@ -21,7 +21,7 @@ const (
 
 type message internal.Message
 
-func subscribeAndListen(conn *websocket.Conn, ps *pubsub.PubSub, topic string) {
+func subscribeAndListen(conn *websocket.Conn, ps pubsub.PublishSubscribe, topic string) {
 	ps.Subscribe(topic, conn)
 
 	// listen for messages
