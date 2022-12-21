@@ -16,6 +16,7 @@ const (
 	READMSGERR   = "Could not read the incoming message"
 	UNMARSHALERR = "Could not unmarshal the JSON"
 	RESPONDERR   = "Could not send a response to the client"
+	PUBLISHERR   = "Could not publish the message to all subscribers"
 )
 
 type message internal.Message
@@ -54,7 +55,15 @@ func subscribeAndListen(conn *websocket.Conn, ps *pubsub.PubSub, topic string) {
 		fmt.Printf("%s - %s: %s", topic, msg.UserID, msg.Body)
 
 		// send the message to all subscribers
-		_ = ps.Publish(topic, messageType, messageContent)
+		err = ps.Publish(topic, messageType, messageContent)
+		if err != nil {
+			log.Println(err)
+			err = sendErrorMessage(conn, messageType, PUBLISHERR)
+			if err != nil {
+				log.Println(RESPONDERR)
+				log.Println(err)
+			}
+		}
 	}
 }
 
