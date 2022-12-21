@@ -13,8 +13,10 @@ import (
 	"github.com/micahrowell/fathom-interview/internal"
 )
 
-func getInput(input chan internal.Message, user string) {
-	msg := internal.Message{}
+type message internal.Message
+
+func getInput(input chan message, user string) {
+	msg := message{}
 	in := bufio.NewReader(os.Stdin)
 	terminalInput, err := in.ReadString('\n')
 	if err != nil {
@@ -33,21 +35,12 @@ func main() {
 	server := fmt.Sprintf("%s:%d", config.Server.Name, config.Server.Port)
 
 	if len(os.Args) != 3 {
-		fmt.Println("Client needs Path and Username arguments")
+		fmt.Println("Client needs Topic and Username arguments")
 		return
 	}
 	topic := os.Args[1]
 	username := os.Args[2]
 	fmt.Println("Connecting to:", server, "at", topic)
-
-	// create a channel to listen for this client closing
-	// in this example, typing ctrl+C on the keyboard will send the appropriate signal
-	quitChannel := make(chan os.Signal, 1)
-	signal.Notify(quitChannel, os.Interrupt)
-
-	// create a channel to listen for user input from the terminal
-	inputChannel := make(chan internal.Message, 1)
-	go getInput(inputChannel, username)
 
 	// create the websocket that will connect to the server
 	URL := url.URL{Scheme: "ws", Host: server, Path: topic}
@@ -57,6 +50,15 @@ func main() {
 		return
 	}
 	defer ws.Close()
+
+	// create a channel to listen for this client closing
+	// in this example, typing ctrl+C on the keyboard will send the appropriate signal
+	quitChannel := make(chan os.Signal, 1)
+	signal.Notify(quitChannel, os.Interrupt)
+
+	// create a channel to listen for user input from the terminal
+	userInputChannel := make(chan message, 1)
+	go getInput(userInputChannel, username)
 
 	// create another channel for when we receive an error from the server
 	serverInterruptChannel := make(chan struct{})
@@ -68,7 +70,7 @@ func main() {
 				log.Printf("Error when attempting to read a message from the server: %s\n", err)
 				return
 			}
-			msg := internal.Message{}
+			msg := message{}
 			err = json.Unmarshal(remoteMessage, &msg)
 			if err != nil {
 				log.Printf("Error when attempting to unmarshal remote message. Err: %s\nMessage: %s\n", err, string(remoteMessage))
@@ -86,14 +88,14 @@ func main() {
 		case <-serverInterruptChannel:
 			log.Println("Websocket connection closed on server side, exiting...")
 			return
-		case msg := <-inputChannel:
+		case msg := <-userInputChannel:
 			msgJson, err := json.Marshal(msg)
 			err = ws.WriteMessage(websocket.TextMessage, msgJson)
 			if err != nil {
 				log.Println("Write error:", err)
 				return
 			}
-			go getInput(inputChannel, username)
+			go getInput(userInputChannel, username)
 		case <-quitChannel:
 			log.Println("Client is quitting!")
 			err := ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
