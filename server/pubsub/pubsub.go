@@ -1,37 +1,39 @@
 package pubsub
 
 import (
-	// "fmt"
 	"sync"
 
 	"github.com/gorilla/websocket"
 )
 
-type PubSub interface {
-	Publish(string, int, []byte)
+type PublishSubscribe interface {
+	Publish(string, int, []byte) error
 	Subscribe(string, *websocket.Conn)
 	Unsubscribe(string, *websocket.Conn) bool
 }
 
-type PubSubImpl struct {
+type PubSub struct {
 	mu            sync.RWMutex
 	subscriptions map[string][]*websocket.Conn
 }
 
-func NewPubSub() *PubSubImpl {
-	ps := &PubSubImpl{}
+func NewPubSub() *PubSub {
+	ps := &PubSub{}
 	ps.subscriptions = map[string][]*websocket.Conn{}
 	return ps
 }
 
-func (ps *PubSubImpl) Subscribe(topic string, conn *websocket.Conn) {
+func (ps *PubSub) Subscribe(topic string, conn *websocket.Conn) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 
 	ps.subscriptions[topic] = append(ps.subscriptions[topic], conn)
 }
 
-func (ps *PubSubImpl) Unsubscribe(topic string, conn *websocket.Conn) bool {
+func (ps *PubSub) Unsubscribe(topic string, conn *websocket.Conn) bool {
+	ps.mu.Lock()
+	defer ps.mu.Unlock()
+
 	idx := -1
 	for i, c := range ps.subscriptions[topic] {
 		if conn.RemoteAddr().Network() == c.RemoteAddr().Network() {
@@ -50,13 +52,13 @@ func (ps *PubSubImpl) Unsubscribe(topic string, conn *websocket.Conn) bool {
 	return idx != -1
 }
 
-func (ps *PubSubImpl) Publish(topic string, messageType int, data []byte) error {
+func (ps *PubSub) Publish(topic string, messageType int, data []byte) error {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 
 	var err error = nil
 	for _, conn := range ps.subscriptions[topic] {
-		err = conn.WriteMessage(messageType, []byte(data))
+		err = conn.WriteMessage(messageType, data)
 	}
 	return err
 }

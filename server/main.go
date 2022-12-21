@@ -6,49 +6,78 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/micahrowell/fathom-interview/internal"
 	"github.com/micahrowell/fathom-interview/server/pubsub"
 
 	"github.com/gorilla/websocket"
 )
 
-type message struct {
-	UserID string
-	Body   string
-}
+const (
+	READMSGERR   = "Could not read the incoming message"
+	UNMARSHALERR = "Could not unmarshal the JSON"
+	RESPONDERR   = "Could not send a response to the client"
+	PUBLISHERR   = "Could not publish the message to all subscribers"
+)
 
-// TODO: modify to remove connection, publish to all connections
-func subscribeAndListen(conn *websocket.Conn, ps *pubsub.PubSubImpl, path string) {
-	ps.Subscribe(path, conn)
+type message internal.Message
+
+func subscribeAndListen(conn *websocket.Conn, ps pubsub.PublishSubscribe, topic string) {
+	ps.Subscribe(topic, conn)
 
 	// listen for messages
 	for {
-		// read a message
+		// read incoming message
 		messageType, messageContent, err := conn.ReadMessage()
 		if err != nil {
 			log.Println(err)
-			return
+			err = sendErrorMessage(conn, messageType, READMSGERR)
+			if err != nil {
+				log.Println(RESPONDERR)
+				log.Println(err)
+			}
+			continue
 		}
 
+		// convert from JSON
 		msg := message{}
 		err = json.Unmarshal(messageContent, &msg)
 		if err != nil {
 			log.Println(err)
-			return
+			err = sendErrorMessage(conn, messageType, UNMARSHALERR)
+			if err != nil {
+				log.Println(RESPONDERR)
+				log.Println(err)
+			}
+			continue
 		}
-		// messageString := string(messageContent)
 
 		// display message on the server console
-		messageWithTopic := fmt.Sprintf("%s - %s: %s", path, msg.UserID, msg.Body)
-		fmt.Println(messageWithTopic)
+		fmt.Printf("%s - %s: %s", topic, msg.UserID, msg.Body)
 
 		// send the message to all subscribers
-		_ = ps.Publish(path, messageType, messageContent)
+		err = ps.Publish(topic, messageType, messageContent)
+		if err != nil {
+			log.Println(err)
+			err = sendErrorMessage(conn, messageType, PUBLISHERR)
+			if err != nil {
+				log.Println(RESPONDERR)
+				log.Println(err)
+			}
+		}
 	}
 }
 
+func sendErrorMessage(conn *websocket.Conn, msgType int, info string) error {
+	msg := fmt.Sprintf("The server encountered an error with your message: %s", info)
+	return conn.WriteMessage(msgType, []byte(msg))
+}
+
 func main() {
+	var config internal.Configuration
+	config.ReadConfig()
+
 	ps := pubsub.NewPubSub()
-	var upgrader = websocket.Upgrader{}
+	upgrader := websocket.Upgrader{}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -57,13 +86,12 @@ func main() {
 			log.Println(err)
 			return
 		}
-		log.Printf("Websocket connected at path %s", r.URL.Path)
-		subscribeAndListen(ws, ps, r.URL.Path)
+		log.Printf("Websocket connected at %s", r.URL.Path)
+		go subscribeAndListen(ws, ps, r.URL.Path)
 	})
 
-	err := http.ListenAndServe(":3000", mux)
-
-	if err != nil {
+	port := fmt.Sprintf(":%d", config.Server.Port)
+	if err := http.ListenAndServe(port, mux); err != nil {
 		log.Fatal(err)
 	}
 }

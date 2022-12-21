@@ -1,1 +1,3 @@
 # fathom-interview
+
+This project implements a chat program using the Publish/Subscribe paradigm. One server runs and multiple clients can connect to different endpoints of their choosing. Each endpoint will be considered a topic to which the client will be subscribed. Whenever a client sends a message to the server on that endoint, all subscribed clients will receive the message. Clients subscribed to other topics will not see that particular message.
